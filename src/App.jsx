@@ -101,26 +101,38 @@ const MatrixGame = () => {
   };
 
   // Check if matrix is in reduced row echelon form
-  const checkComplete = (mat) => {
-    let pivotCol = 0;
-    for (let i = 0; i < size; i++) {
-      // Find the pivot (first non-zero element in the row)
-      while (pivotCol < size && Math.abs(mat[i][pivotCol]) < 0.0001) {
-        pivotCol++;
-      }
-      
-      if (pivotCol < size) {
-        // Check if pivot is 1
-        if (Math.abs(mat[i][pivotCol] - 1) > 0.0001) return false;
-        
-        // Check if all other elements in this column are 0
-        for (let k = 0; k < size; k++) {
-          if (k !== i && Math.abs(mat[k][pivotCol]) > 0.0001) {
-            return false;
-          }
+const checkComplete = (mat) => {
+    let lastPivotCol = -1;
+    let inZeroRows = false;
+    const tolerance = 1e-4;
+
+    for (let i = 0; i < size; i++) { // For each row
+      const row = mat[i];
+      let pivotCol = -1;
+
+      // Find pivot for this row
+      for (let j = 0; j < size; j++) {
+        if (Math.abs(row[j]) > tolerance) {
+          pivotCol = j;
+          break;
         }
-        pivotCol++;
       }
+
+      if (pivotCol === -1) { // This is a zero row (in the non-augmented part)
+        inZeroRows = true;
+        continue;
+      }
+
+      if (inZeroRows) return false; // Non-zero row found after a zero row
+      if (pivotCol <= lastPivotCol) return false; // Pivot is not to the right of the one above
+      if (Math.abs(row[pivotCol] - 1) > tolerance) return false; // Pivot is not 1
+
+      // Check if all other elements in pivot column are zero
+      for (let k = 0; k < size; k++) {
+        if (k !== i && Math.abs(mat[k][pivotCol]) > tolerance) return false;
+      }
+
+      lastPivotCol = pivotCol;
     }
     return true;
   };
