@@ -523,6 +523,10 @@ const checkComplete = (mat) => {
                   <span className="instruction-dot emerald"></span>
                   Fewer moves = higher score!
                 </p>
+                <p className="instruction-item">
+                  <span className="instruction-dot purple"></span>
+                  If the math acts really weird, blame JavaScript and refresh the matrix
+                </p>
               </div>
             </div>
           </div>
