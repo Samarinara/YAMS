@@ -13,7 +13,7 @@ const MatrixGame = () => {
   const [selectedRow1, setSelectedRow1] = useState(-1);
   const [selectedRow2, setSelectedRow2] = useState(-1);
   const [operation, setOperation] = useState('swap');
-  const [multiplier, setMultiplier] = useState(1);
+  const [multiplier, setMultiplier] = useState('1');
   const [hint, setHint] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const [animatingCells, setAnimatingCells] = useState(new Set());
@@ -47,6 +47,57 @@ const MatrixGame = () => {
     setHint('');
     setAnimatingCells(new Set());
     setPulsingRows(new Set());
+  };
+
+  const toFraction = (decimal) => {
+    const tolerance = 1.0E-6;
+    if (Math.abs(decimal - Math.round(decimal)) < tolerance) {
+      return String(Math.round(decimal));
+    }
+
+    const sign = decimal < 0 ? "-" : "";
+    const num = Math.abs(decimal);
+    const maxDenominator = 100;
+
+    // Continued fraction method
+    let h1 = 1, h2 = 0;
+    let k1 = 0, k2 = 1;
+    let b = num;
+
+    for (let i = 0; i < 100; i++) { // Limit iterations
+      const a = Math.floor(b);
+      let temp = h1; h1 = a * h1 + h2; h2 = temp;
+      temp = k1; k1 = a * k1 + k2; k2 = temp;
+
+      if (k1 > maxDenominator) {
+        return `${sign}${h2}/${k2}`; // Return previous, simpler fraction
+      }
+
+      if (Math.abs(num - h1 / k1) < num * tolerance) {
+        return `${sign}${h1}/${k1}`;
+      }
+
+      b = 1 / (b - a);
+      if (isNaN(b)) break;
+    }
+
+    return decimal.toFixed(2); // Fallback for complex numbers
+  };
+
+  const parseFraction = (str) => {
+    str = String(str).trim();
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 2) {
+        const numerator = parseFloat(parts[0]);
+        const denominator = parseFloat(parts[1]);
+        if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+          return numerator / denominator;
+        }
+      }
+    }
+    const num = parseFloat(str);
+    return isNaN(num) ? NaN : num;
   };
 
   // Check if matrix is in reduced row echelon form
@@ -96,6 +147,13 @@ const MatrixGame = () => {
     const newMatrix = matrix.map(row => [...row]);
     let validOperation = true;
     
+    const parsedMultiplier = parseFraction(multiplier);
+    if (isNaN(parsedMultiplier)) {
+      setHint('Invalid multiplier format. Use a number or a fraction (e.g., 1/2).');
+      setTimeout(() => setHint(''), 3000);
+      return;
+    }
+
     // Add gentle pulsing animation to affected rows
     const affectedRows = new Set([selectedRow1]);
     if (selectedRow2 !== -1) affectedRows.add(selectedRow2);
@@ -110,21 +168,21 @@ const MatrixGame = () => {
         break;
         
       case 'multiply':
-        if (multiplier === 0) {
+        if (parsedMultiplier === 0) {
           validOperation = false;
           setHint('Cannot multiply by zero!');
           setTimeout(() => setHint(''), 2000);
           return;
         }
         for (let j = 0; j <= size; j++) {
-          newMatrix[selectedRow1][j] *= multiplier;
+          newMatrix[selectedRow1][j] *= parsedMultiplier;
         }
         break;
         
       case 'add':
         if (selectedRow2 === -1) return;
         for (let j = 0; j <= size; j++) {
-          newMatrix[selectedRow1][j] += multiplier * newMatrix[selectedRow2][j];
+          newMatrix[selectedRow1][j] += parsedMultiplier * newMatrix[selectedRow2][j];
         }
         break;
         
@@ -289,7 +347,7 @@ const MatrixGame = () => {
                           } ${
                             animatingCells.has(`${i}-${j}`) ? 'animate-gentle-bounce bg-green-200 border-green-300' : ''
                           }`}>
-                            <span className="matrix-cell-value">{val.toFixed(1)}</span>
+                            <span className="matrix-cell-value">{toFraction(val)}</span>
                           </div>
                           {j === size - 1 && (
                             <div className="matrix-divider">|</div>
@@ -336,10 +394,9 @@ const MatrixGame = () => {
                   <div className="multiplier-container animate-slideDown">
                     <label className="input-label">Multiplier:</label>
                     <input
-                      type="number"
-                      step="0.1"
+                      type="text"
                       value={multiplier}
-                      onChange={(e) => setMultiplier(parseFloat(e.target.value))}
+                      onChange={(e) => setMultiplier(e.target.value)}
                       className="multiplier-input"
                     />
                   </div>
