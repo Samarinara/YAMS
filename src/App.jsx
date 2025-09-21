@@ -509,8 +509,12 @@ const checkComplete = (mat) => {
                   Fewer moves = higher score!
                 </p>
                 <p className="instruction-item">
+                  <span className="instruction-dot pink"></span>
+                  If you have issues with the math click "new matrix" and try again
+                </p>                
+                <p className="instruction-item">
                   <span className="instruction-dot purple"></span>
-                  The math should be reliable now!
+                  Found a bug? Submit a report on Github<a href="https://github.com/Samarinara/YAMS" target="_blank" rel="noopener noreferrer" style={{color: '#a78bfa', textDecoration: 'underline'}}>GitHub</a>.
                 </p>
               </div>
             </div>
