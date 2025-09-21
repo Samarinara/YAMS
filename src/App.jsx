@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, Trophy, Zap, Target, CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { Decimal } from 'decimal.js';
 import './App.css';
 
 const MatrixGame = () => {
@@ -50,38 +51,17 @@ const MatrixGame = () => {
   };
 
   const toFraction = (decimal) => {
-    const tolerance = 1.0E-6;
-    if (Math.abs(decimal - Math.round(decimal)) < tolerance) {
-      return String(Math.round(decimal));
-    }
-
-    const sign = decimal < 0 ? "-" : "";
-    const num = Math.abs(decimal);
-    const maxDenominator = 100;
-
-    // Continued fraction method
-    let h1 = 1, h2 = 0;
-    let k1 = 0, k2 = 1;
-    let b = num;
-
-    for (let i = 0; i < 100; i++) { // Limit iterations
-      const a = Math.floor(b);
-      let temp = h1; h1 = a * h1 + h2; h2 = temp;
-      temp = k1; k1 = a * k1 + k2; k2 = temp;
-
-      if (k1 > maxDenominator) {
-        return `${sign}${h2}/${k2}`; // Return previous, simpler fraction
+    try {
+      const d = new Decimal(decimal);
+      if (d.isInteger()) {
+        return d.toString();
       }
-
-      if (Math.abs(num - h1 / k1) < num * tolerance) {
-        return `${sign}${h1}/${k1}`;
-      }
-
-      b = 1 / (b - a);
-      if (isNaN(b)) break;
+      // .toFraction() returns [numerator, denominator]
+      const frac = d.toFraction(100); // max denominator 100
+      return `${frac[0]}/${frac[1]}`;
+    } catch (e) {
+      return new Decimal(decimal).toDecimalPlaces(2).toString();
     }
-
-    return decimal.toFixed(2); // Fallback for complex numbers
   };
 
   const parseFraction = (str) => {
@@ -104,7 +84,7 @@ const MatrixGame = () => {
 const checkComplete = (mat) => {
     let lastPivotCol = -1;
     let inZeroRows = false;
-    const tolerance = 1e-4;
+    const tolerance = new Decimal('1e-9');
 
     for (let i = 0; i < size; i++) { // For each row
       const row = mat[i];
@@ -112,7 +92,7 @@ const checkComplete = (mat) => {
 
       // Find pivot for this row
       for (let j = 0; j < size; j++) {
-        if (Math.abs(row[j]) > tolerance) {
+        if (new Decimal(row[j]).abs().gt(tolerance)) {
           pivotCol = j;
           break;
         }
@@ -125,11 +105,11 @@ const checkComplete = (mat) => {
 
       if (inZeroRows) return false; // Non-zero row found after a zero row
       if (pivotCol <= lastPivotCol) return false; // Pivot is not to the right of the one above
-      if (Math.abs(row[pivotCol] - 1) > tolerance) return false; // Pivot is not 1
+      if (new Decimal(row[pivotCol]).minus(1).abs().gt(tolerance)) return false; // Pivot is not 1
 
       // Check if all other elements in pivot column are zero
       for (let k = 0; k < size; k++) {
-        if (k !== i && Math.abs(mat[k][pivotCol]) > tolerance) return false;
+        if (k !== i && new Decimal(mat[k][pivotCol]).abs().gt(tolerance)) return false;
       }
 
       lastPivotCol = pivotCol;
@@ -142,7 +122,7 @@ const checkComplete = (mat) => {
     const changedCells = new Set();
     for (let i = 0; i < size; i++) {
       for (let j = 0; j <= size; j++) {
-        if (Math.abs(oldMatrix[i][j] - newMatrix[i][j]) > 0.0001) {
+        if (new Decimal(oldMatrix[i][j]).minus(newMatrix[i][j]).abs().gt('0.0001')) {
           changedCells.add(`${i}-${j}`);
         }
       }
@@ -159,8 +139,13 @@ const checkComplete = (mat) => {
     const newMatrix = matrix.map(row => [...row]);
     let validOperation = true;
     
-    const parsedMultiplier = parseFraction(multiplier);
-    if (isNaN(parsedMultiplier)) {
+    let parsedMultiplier;
+    try {
+      // Use parseFraction to handle "1/2" etc., then create a Decimal
+      const numericValue = parseFraction(multiplier);
+      if (isNaN(numericValue)) throw new Error();
+      parsedMultiplier = new Decimal(numericValue);
+    } catch (e) {
       setHint('Invalid multiplier format. Use a number or a fraction (e.g., 1/2).');
       setTimeout(() => setHint(''), 3000);
       return;
@@ -180,21 +165,21 @@ const checkComplete = (mat) => {
         break;
         
       case 'multiply':
-        if (parsedMultiplier === 0) {
+        if (parsedMultiplier.isZero()) {
           validOperation = false;
           setHint('Cannot multiply by zero!');
           setTimeout(() => setHint(''), 2000);
           return;
         }
         for (let j = 0; j <= size; j++) {
-          newMatrix[selectedRow1][j] *= parsedMultiplier;
+          newMatrix[selectedRow1][j] = new Decimal(newMatrix[selectedRow1][j]).times(parsedMultiplier);
         }
         break;
         
       case 'add':
         if (selectedRow2 === -1) return;
         for (let j = 0; j <= size; j++) {
-          newMatrix[selectedRow1][j] += parsedMultiplier * newMatrix[selectedRow2][j];
+          newMatrix[selectedRow1][j] = new Decimal(newMatrix[selectedRow1][j]).plus(parsedMultiplier.times(newMatrix[selectedRow2][j]));
         }
         break;
         
@@ -525,7 +510,7 @@ const checkComplete = (mat) => {
                 </p>
                 <p className="instruction-item">
                   <span className="instruction-dot purple"></span>
-                  If the math acts really weird, blame JavaScript and refresh the matrix
+                  The math should be reliable now!
                 </p>
               </div>
             </div>
