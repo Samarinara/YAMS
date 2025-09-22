@@ -56,28 +56,38 @@ const MatrixGame = () => {
       if (d.isInteger()) {
         return d.toString();
       }
-      // .toFraction() returns [numerator, denominator]
       const frac = d.toFraction(100); // max denominator 100
-      return `${frac[0]}/${frac[1]}`;
+      const num = frac[0];
+      const den = frac[1];
+
+      if (den.equals(1)) {
+        return num.toString();
+      }
+      if (num.isZero()) {
+        return '0';
+      }
+      return `${num.toString()}/${den.toString()}`;
     } catch (e) {
       return new Decimal(decimal).toDecimalPlaces(2).toString();
     }
   };
 
   const parseFraction = (str) => {
-    str = String(str).trim();
-    if (str.includes('/')) {
-      const parts = str.split('/');
-      if (parts.length === 2) {
-        const numerator = parseFloat(parts[0]);
-        const denominator = parseFloat(parts[1]);
-        if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-          return numerator / denominator;
+    try {
+      const trimmedStr = String(str).trim();
+      if (trimmedStr.includes('/')) {
+        const parts = trimmedStr.split('/');
+        if (parts.length === 2) {
+          const num = new Decimal(parts[0]);
+          const den = new Decimal(parts[1]);
+          if (den.isZero()) return NaN;
+          return num.div(den);
         }
       }
+      return new Decimal(trimmedStr);
+    } catch (e) {
+      return NaN;
     }
-    const num = parseFloat(str);
-    return isNaN(num) ? NaN : num;
   };
 
   // Check if matrix is in reduced row echelon form
@@ -142,9 +152,9 @@ const checkComplete = (mat) => {
     let parsedMultiplier;
     try {
       // Use parseFraction to handle "1/2" etc., then create a Decimal
-      const numericValue = parseFraction(multiplier);
-      if (isNaN(numericValue)) throw new Error();
-      parsedMultiplier = new Decimal(numericValue);
+      parsedMultiplier = parseFraction(multiplier);
+      // isNaN check for Decimal object is .isNaN()
+      if (parsedMultiplier.isNaN()) throw new Error();
     } catch (e) {
       setHint('Invalid multiplier format. Use a number or a fraction (e.g., 1/2).');
       setTimeout(() => setHint(''), 3000);
